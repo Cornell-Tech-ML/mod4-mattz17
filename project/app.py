@@ -1,3 +1,4 @@
+#type: ignore
 from argparse import ArgumentParser
 
 import streamlit as st

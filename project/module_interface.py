@@ -26,7 +26,7 @@ class MyModule(minitorch.Module):
 """,
     )
     out = exec(code, globals())
-    out = MyModule()
+    out = MyModule() #type: ignore
     st.write(dict(out.named_parameters()))
     G = nx.MultiDiGraph()
     G.add_node("base")

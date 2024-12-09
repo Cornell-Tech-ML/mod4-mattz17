@@ -1,3 +1,4 @@
+#type: ignore
 """
 Be sure you have the extra requirements installed.
 

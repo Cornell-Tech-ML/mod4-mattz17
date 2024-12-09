@@ -1,3 +1,8 @@
+#type: ignore
+import os.path
+# Set HOME environment variable for Windows
+os.environ['HOME'] = os.path.expanduser('~')
+
 import random
 
 import embeddings
@@ -35,7 +40,8 @@ class Conv1d(minitorch.Module):
 
     def forward(self, input):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        return minitorch.conv1d(input, self.weights.value) + self.bias.value
+        # raise NotImplementedError("Need to implement for Task 4.5")
 
 
 class CNNSentimentKim(minitorch.Module):
@@ -62,14 +68,40 @@ class CNNSentimentKim(minitorch.Module):
         super().__init__()
         self.feature_map_size = feature_map_size
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        self.fs1 = Conv1d(embedding_size, feature_map_size, filter_sizes[0])
+        self.fs2 = Conv1d(embedding_size, feature_map_size, filter_sizes[1])
+        self.fs3 = Conv1d(embedding_size, feature_map_size, filter_sizes[2])
+        self.l1 = Linear(feature_map_size, 1)
+        self.d = dropout
+        # raise NotImplementedError("Need to implement for Task 4.5")
 
     def forward(self, embeddings):
         """
         embeddings tensor: [batch x sentence length x embedding dim]
         """
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Apply a 1d convolution with input_channels=embedding_dim
+        # feature_map_size=100 output channels and [3, 4, 5]-sized kernels
+        # followed by a non-linear activation function (the paper uses tanh, we apply a ReLu)
+        x = embeddings.permute(0, 2, 1)  # embedding dim, sentence length
+        layer1 = self.fs1(x).relu()
+        layer2 = self.fs2(x).relu()
+        layer3 = self.fs3(x).relu()
+        # Apply max-over-time across each feature map
+        m1 = minitorch.max(layer1, 2)
+        m2 = minitorch.max(layer2, 2)
+        m3 = minitorch.max(layer3, 2)
+        out = m1 + m2 + m3
+        out = out.view(x.shape[0], self.feature_map_size)
+
+        # Apply a Linear to size C (number of classes) followed by a ReLU and Dropout with rate 25%
+        out = self.l1.forward(out)
+        if not self.training:
+             x = minitorch.nn.dropout(out, self.d)
+
+        # Apply a sigmoid over the class dimension.
+        return out.sigmoid().view(x.shape[0])
+        # raise NotImplementedError("Need to implement for Task 4.5")
 
 
 # Evaluation helper methods
@@ -87,7 +119,7 @@ def get_predictions_array(y_true, model_output):
 
 def get_accuracy(predictions_array):
     correct = 0
-    for y_true, y_pred, logit in predictions_array:
+    for (y_true, y_pred, logit) in predictions_array:
         if y_true == y_pred:
             correct += 1
     return correct / len(predictions_array)
@@ -222,6 +254,7 @@ def encode_sentences(
 
 
 def encode_sentiment_data(dataset, pretrained_embeddings, N_train, N_val=0):
+
     #  Determine max sentence length for padding
     max_sentence_len = 0
     for sentence in dataset["train"]["sentence"] + dataset["validation"]["sentence"]:

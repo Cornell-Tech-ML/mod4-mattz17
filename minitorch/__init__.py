@@ -1,3 +1,10 @@
+"""Initialization module for the package.
+This module serves as the entry point for the package, importing essential components
+such as datasets, optimization algorithms, tensor operations, scalar functions, neural
+network modules, and utilities for testing and auto-differentiation. It consolidates
+all imports for easier access and ensures seamless integration across the package.
+"""
+
 from .testing import MathTest, MathTestVariable  # type: ignore # noqa: F401,F403
 from .datasets import *  # noqa: F401,F403
 from .optim import *  # noqa: F401,F403
