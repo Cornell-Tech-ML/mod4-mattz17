@@ -1,3 +1,4 @@
+# type: ignore
 import networkx as nx
 import streamlit as st
 from streamlit_ace import st_ace
