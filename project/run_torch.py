@@ -1,3 +1,4 @@
+#type: ignore
 import torch
 
 import minitorch

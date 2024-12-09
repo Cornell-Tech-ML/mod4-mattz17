@@ -1,3 +1,4 @@
+#type: ignore
 import plotly.graph_objects as go
 
 

@@ -1,14 +1,11 @@
 from typing import Tuple, TypeVar, Any
 
-import numpy as np
 from numba import prange
 from numba import njit as _njit
 
 from .autodiff import Context
 from .tensor import Tensor
 from .tensor_data import (
-    MAX_DIMS,
-    Index,
     Shape,
     Strides,
     Storage,
@@ -22,6 +19,16 @@ Fn = TypeVar("Fn")
 
 
 def njit(fn: Fn, **kwargs: Any) -> Fn:
+    """A wrapper for the Numba `njit` function, enabling just-in-time compilation with inlining set to "always".
+
+    Args:
+        fn (Fn): The function to be compiled.
+        **kwargs (Any): Additional keyword arguments to pass to the Numba `njit` decorator.
+
+    Returns:
+        Fn: The compiled version of the input function with inlining always enabled.
+
+    """
     return _njit(inline="always", **kwargs)(fn)  # type: ignore
 
 
@@ -91,7 +98,23 @@ def _tensor_conv1d(
     s2 = weight_strides
 
     # TODO: Implement for Task 4.1.
-    raise NotImplementedError("Need to implement for Task 4.1")
+    for i in prange(batch):
+        for j in prange(out_channels):
+            for k in prange(out_width):
+                out_ind = (
+                    (out_strides[0] * i) + (out_strides[1] * j) + (out_strides[2] * k)
+                )
+                for l in prange(in_channels):
+                    a = min(k, width - 1)
+                    b = min(k + kw, width)
+                    if reverse:
+                        a = max(k - kw + 1, 0)
+                        b = min(k + 1, width)
+                    for m in prange(a, b):
+                        in_ind = (s1[0] * i) + (s1[1] * l) + (s1[2] * m)
+                        weight_ind = (s2[0] * j) + (s2[1] * l) + (s2[2] * (m - a))
+                        out[out_ind] += input[in_ind] * weight[weight_ind]
+    # raise NotImplementedError("Need to implement for Task 4.1")
 
 
 tensor_conv1d = njit(_tensor_conv1d, parallel=True)
@@ -127,6 +150,18 @@ class Conv1dFun(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Compute the gradients of the input and weights for the 1D convolution during backpropagation.
+
+        Args:
+            ctx (Context): Context object containing saved tensors from the forward pass.
+            grad_output (Tensor): Gradient of the loss with respect to the output tensor.
+
+        Returns:
+            Tuple[Tensor, Tensor]: A tuple containing:
+                - grad_input (Tensor): Gradient of the loss with respect to the input tensor.
+                - grad_weight (Tensor): Gradient of the loss with respect to the weight tensor.
+
+        """
         input, weight = ctx.saved_values
         batch, in_channels, w = input.shape
         out_channels, in_channels, kw = weight.shape
@@ -203,7 +238,7 @@ def _tensor_conv2d(
         reverse (bool): anchor weight at top-left or bottom-right
 
     """
-    batch_, out_channels, _, _ = out_shape
+    batch_, out_channels, out_h, out_w = out_shape
     batch, in_channels, height, width = input_shape
     out_channels_, in_channels_, kh, kw = weight_shape
 
@@ -220,7 +255,37 @@ def _tensor_conv2d(
     s20, s21, s22, s23 = s2[0], s2[1], s2[2], s2[3]
 
     # TODO: Implement for Task 4.2.
-    raise NotImplementedError("Need to implement for Task 4.2")
+    for i in prange(batch):
+        for j in prange(out_channels):
+            for k in prange(out_h):
+                for l in prange(out_w):
+                    out_ind = (
+                        (out_strides[0] * i)
+                        + (out_strides[1] * j)
+                        + (out_strides[2] * k)
+                        + (out_strides[3] * l)
+                    )
+                    for m in prange(in_channels):
+                        a1 = min(k, height - 1)
+                        a2 = min(l, width - 1)
+                        b1 = min(k + kh, height)
+                        b2 = min(l + kw, width)
+                        if reverse:
+                            a1 = max(k - kh + 1, 0)
+                            a2 = max(l - kw + 1, 0)
+                            b1 = min(k + 1, height)
+                            b2 = min(l + 1, width)
+                        for h1 in prange(a1, b1):
+                            for w1 in prange(a2, b2):
+                                in_ind = (s10 * i) + (s11 * m) + (s12 * h1) + (s13 * w1)
+                                weight_ind = (
+                                    (s20 * j)
+                                    + (s21 * m)
+                                    + (s22 * (h1 - a1))
+                                    + (s23 * (w1 - a2))
+                                )
+                                out[out_ind] += input[in_ind] * weight[weight_ind]
+    # raise NotImplementedError("Need to implement for Task 4.2")
 
 
 tensor_conv2d = njit(_tensor_conv2d, parallel=True, fastmath=True)
@@ -254,6 +319,18 @@ class Conv2dFun(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Compute the gradients of the input and weights for the 2D convolution during backpropagation.
+
+        Args:
+            ctx (Context): Context object containing saved tensors from the forward pass.
+            grad_output (Tensor): Gradient of the loss with respect to the output tensor.
+
+        Returns:
+            Tuple[Tensor, Tensor]: A tuple containing:
+                - grad_input (Tensor): Gradient of the loss with respect to the input tensor.
+                - grad_weight (Tensor): Gradient of the loss with respect to the weight tensor.
+
+        """
         input, weight = ctx.saved_values
         batch, in_channels, h, w = input.shape
         out_channels, in_channels, kh, kw = weight.shape

@@ -1,3 +1,4 @@
+#type: ignore
 import networkx as nx
 from dataclasses import dataclass
 import minitorch
